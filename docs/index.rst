@@ -37,10 +37,10 @@ A Benchmarking and Performance Analysis Framework
 
    guides/UserGuide
 
-* :doc:`server/foo`
+* :doc:`server/installation`
 
 .. toctree::
    :caption: Pbench-server
    :hidden:
 
-   server/foo
+   server/installation
