@@ -1,0 +1,332 @@
+#+INCLUDE: settings.org
+#+OPTIONS: ^:{}
+#+TITLE: PBench agent installation
+
+* Introduction
+
+The pbench agent requires the installation of some generic bits, but it
+also requires some localization: it needs to know where to send the results
+for storage and analysis and it needs to be able to authenticate to the
+results server.
+
+The generic bits are packaged as an RPM, available from COPR
+([[https://copr.fedorainfracloud.org/]]). We try to build a new release
+every month or so.
+
+The localization bits are of course, specific to a particular
+installation.  Internally, we make them available through an ansible
+playbook. We used to make them available through an internal RPM, but
+we have deprecated that method: we no longer build internal RPMs. Other
+installations may use different methods to make them
+available. Consult your local pbench guru for help.
+
+In the following, we describe how to install =pbench-agent= using an
+ansible playbook.
+
+Note that the same =pbench-agent= version *must* be installed on all the
+test systems that participate in a benchmark run: there is *no support
+for mixed installations*.
+
+* Release announcements                                                                                       :internal:
+We are planning to have monthly releases in the short term.
+Releases are announced on the following mailing lists:
+- =perf-dept-infra-users@redhat.com=
+- =perf-dept@redhat.com=
+- =aos-scalability@redhat.com=
+
+
+* Boostrapping a New System                                                                                   :internal:
+
+*N.B.* You need to do this step *before* going on to the rest of the
+steps described here, or at least to make sure that you have
+reasonable repo files installed already. If you are not sure, we
+recommend that you run this step after saving any existing repo files
+and compare the new ones with the existing ones. This should be a
+one-time procedure, except for lifecycle events, e.g. when a current
+beta or RC release becomes official, then its repos will likely
+change.
+
+The =pbench-agent= RPM has a large number of dependencies. The first
+time that it is installed, it will install a long list of packages
+that it depends on: it is not unusual for the list to contain close to
+two hundred packages.  So before you install the =pbench-agent= RPM, you need
+to ensure that the host contains a reasonable set of repos in
+=/etc/yum.repos.d=.
+
+One way to do that is to enable a subscription on the host. That
+should install all the repos needed (with the exception of EPEL: see
+[[file:bootstrapping.org][Installing necessary repos]] for instructions on how to install it.)
+
+Internally, in many cases Red Hat subscriptions are *not* used, so we
+provide a set of repos that can be installed on (recent) RHEL7,
+RHEL8 or RHEL9 systems to provide what is needed.  How to do that is described
+in [[file:bootstrapping.org][Installing necessary repos]].
+
+
+Some gotchas:
+- On RHEL7, if you don't use the boostrapping playbook, described in
+  [[file:bootstrapping.org][Installing necessary repos]], you will need to make sure that you have
+  a repo file that will allow the =pbench-agent= installation scripts to
+  install the Software Collections bits. That's needed to allow
+  =python3= (which is what =pbench-agent= depends on) to be installed on the
+  system. N.B. This requirement is being phased out: we are moving towards
+  the native =python3= packages that are available for RHEL 7.7 and later.
+
+- On RHEL8, if you don't use the boostrapping playbook, described in
+  [[file:bootstrapping.org][Installing necessary repos]], you will need to make sure that your
+  default python is =python3= (or at least that it is *not*
+  =python2=).
+  The playbook does that like this:
+  #+begin_src shell
+    alternatives --set python /usr/bin/python3
+  #+end_src
+  Note that this assumes that you have =python3= installed; if not, you can install it like this:
+  #+begin_src shell
+    dnf module install -y python36
+  #+end_src
+
+- On CentOS 8, you will need to install and *enable* the Centos-PowerTools repo.
+
+- On RHEL9, the =python3-libselinux=[fn:1] package that is used by
+  Ansible on SELinux enabled systems, is not installed by default,
+  which causes Ansible playbooks to fail. The =quirks-bootstrap=
+  playbook takes care of that.
+
+* Installing Using Ansible                                                                                    :internal:
+:PROPERTIES:
+:CUSTOM_ID: pbench:installing-using-ansible
+:END:
+
+Once you have a good set of repos installed on your machines, then you can
+install =pbench-agent=. The recommended method for installation is through
+ansible playbooks.
+
+The steps are:
+- Make sure that you have ansible and ansible-galaxy installed on your
+  laptop (or wherever you decide to run the playbooks).
+- Install the ansible roles from Ansible Galaxy.
+- Tell ansible where to find these roles.
+- Create a playbook (you can copy the one below).
+- Create an inventory file naming the hosts on which you wish to install
+  =pbench-agent= and including information about where the config file and ssh key
+  file can be found. The repo you cloned above contains an example inventory file
+  that you can modify for your use.
+- Run the playbook.
+
+The playbook will install the pbench repo and it will then use it to
+install the pbench-agent RPM; finally, it will install the
+localization pieces (config file and ssh key) that will allow you to
+send results to the server.
+
+The prerequisite assumption is that you can ssh as root without a
+password into the relevant set of hosts:
+#+begin_src shell
+  ssh-copy-id root@host
+  ...
+#+end_src
+for each host in your inventory (that includes =localhost= if you are going to
+install =pbench-agent= on your local host.
+
+N.B. The =ansible-galaxy collection= commands apparently require
+Ansible 2.9. If you do not want (or cannot) update to that version of
+Ansible, see [[*Backward Compatibility][Backward Compatibility]].
+
+** Install =ansible= and =ansible-galaxy= (one-time task)
+
+That is done using the standard package installer (=dnf= on Fedora, RHEL 8 or CentOS 8; =yum= on RHEL 7 or CentOS 7):
+
+#+begin_src shell
+  # yum on RHEL 7 / CentOS 7
+  dnf install ansible -y
+#+end_src
+
+** Install the =pbench.agent= Roles from Galaxy (one-time task)
+
+#+begin_src shell
+  ansible-galaxy collection install pbench.agent
+#+end_src
+That will install the roles in your home directory at
+=$HOME/.ansible/collections/ansible_collections/pbench/agent/roles/=.
+
+Even though this is a one-time task, there may be updated roles pushed
+to Galaxy (e.g. to fix bugs). It may be a good idea to try the above
+command every once in a while just to check if there are updates, although
+we will announce any such updates in email.
+
+*** Backward Compatibility
+The =ansible-galaxy collection= commands require Ansible 2.9. If you
+do not want to (or cannot) update to this version, the workaround is
+to get the roles from the upstream =pbench= Github repo: the roles on Galaxy
+are updated from the repo. That's the same method that we were using before
+Galaxy.
+
+You will have to clone the =pbench= repo (you can clone it anywhere you
+want, but be sure to tailor the setting of ANSIBLE_ROLES_PATH to the
+appropriate place - =HOME= is used here for definiteness):
+#+begin_src shell
+  cd $HOME
+  git clone https://github.com/distributed-system-analysis/pbench.git
+#+end_src
+
+and set =ANSIBLE_ROLES_PATH= to reflect that:
+#+begin_src shell
+  export ANSIBLE_ROLES_PATH=$HOME/pbench/agent/ansible/pbench/agent/roles:$ANSIBLE_ROLES_PATH
+#+end_src
+And skip the next section.
+
+** Make Roles Available (Galaxy only).
+There are multiple ways to do this but setting an environment variable
+is the simplest:
+
+#+begin_src shell
+  export ANSIBLE_ROLES_PATH=$HOME/.ansible/collections/ansible_collections/pbench/agent/roles:$ANSIBLE_ROLES_PATH
+#+end_src
+
+Adding this to your =.profile= or other shell init file is probably a good idea.
+
+** Create a Playbook (one-time task)
+
+You can copy the following playbook to some place locally - save it under the
+name =pbench_agent_install.yml=.
+
+#+begin_example
+---
+- name: install pbench-agent
+  hosts: servers
+  remote_user: root
+
+  # The default value ('production') can be overriddent by cenv, a host-specific
+  # inventory variable.
+  vars:
+    pbench_configuration_environment: "{{ cenv | default('production') }}"
+
+  roles:
+    - pbench_repo_install
+    - pbench_agent_install
+    - pbench_agent_config
+#+end_example
+
+No modifications are necessary.
+
+** Create an Inventory File (one-time task for a given set of hosts)
+The inventory file can be named anything and placed anywhere, but for
+definiteness, we will assume it is in =~/.config/Inventory/myhosts.inv=.
+
+Copy the following configuration to your inventory file, changing only the
+first section to specify all the hosts where you want to install the agent.
+
+#+BEGIN_EXAMPLE
+[servers]
+host1
+host2
+host3
+
+# DO NOT CHANGE ANYTHING BELOW THIS LINE
+[servers:vars]
+# where to get the key
+pbench_key_url = http://git.app.eng.bos.redhat.com/git/perf-dept.git/plain/bench/pbench/agent/{{ pbench_configuration_environment }}/ssh
+
+# where to get the config file
+pbench_config_url = http://git.app.eng.bos.redhat.com/git/perf-dept.git/plain/bench/pbench/agent/{{ pbench_configuration_environment }}/config
+#+END_EXAMPLE
+
+The above spec covers three hosts. Please make sure that the hosts are
+correct. A useful way to make sure that you are touching the correct
+set of hosts is the following command:
+#+BEGIN_EXAMPLE
+cd /path/to/some/directory/pbench/agent/ansible
+ansible-playbook -i ~/.config/Inventory/myhosts.inv --list-hosts pbench_agent_install.yml
+#+END_EXAMPLE
+If you want to install on the local machine, the inventory file should include =localhost= in
+the =[servers]= section. Note that you need to be able to ssh to the localhost as root as well,
+so you might need to do =ssh-copy-id root@localhost=.
+
+** Run the playbook
+You can install =pbench-agent= by using the following command:
+#+begin_src shell
+ansible-playbook -i ~/.config/Inventory/myhosts.inv pbench_agent_install.yml
+#+end_src
+That will install the appropriate version of =pbench.repo= into the
+=/etc/yum.repos.d= directory of each host (you don't have to worry
+about what distro the host is running: the repo file is tailored
+accordingly); it will then run either =yum= or =dnf= to install or
+update the =pbench-agent= package; and it will install the correct ssh
+key file and the correct pbench-agent config files for the production
+environment.
+
+That's it: you can rerun the playbook to install a new version when
+one becomes available.
+
+** (Optional) Some useful ad-hoc commands
+Once you have an inventory file, you can run ad-hoc commands
+easily. For example, suppose that you want to delete the previously
+installed =pbench-agent=, then you can run the following
+=ansible= command (N.B. you have to specify a host pattern here,
+namely "servers" - that pattern was built into the
+=pbench_agent_install.yml= playbook, so you did not need to specify
+it above):
+#+begin_src shell
+  ansible -i ~/.config/Inventory/myhosts.inv servers -m shell -a 'yum erase -y pbench-agent'
+#+end_src
+or you can clear the cache on all of them
+#+begin_src shell
+  ansible -i ~/.config/Inventory/myhosts.inv servers -m shell -a 'yum clean expire-cache'
+#+end_src
+
+Similarly for other commands: =hostname=, =uname -r= are often useful.
+Be very careful with =shutdown -r now= and =rm -rf /= though :-).
+Also, be careful with quoting:
+#+begin_src
+ansible -i ~/.config/Inventory/myhosts.inv servers -m shell -a 'echo $TERM'
+#+end_src
+is very different from
+#+begin_src shell
+ansible -i ~/.config/Inventory/myhosts.inv servers -m shell -a "echo $TERM"
+#+end_src
+
+Executing ad-hoc commands with ansible obviates the need for many
+"parallel ssh" scripts.
+
+** Repo files for different environments                                                                     :internal:
+Although most people install =pbench-agent= using the "production"
+environment, there are multiple environments used for testing.  The
+most important of these is the "staging" environment.
+
+In some cases, you might want to work in a different environment
+(e.g. =ec2= if you are running benchmarks outside of the Red Hat
+firewall, or =staging= if you are testing something). For these cases,
+you will need to specify the environment explicitly to the playbook:
+#+begin_src shell
+ansible-playbook -i ~/.config/Inventory/myhosts.inv pbench_agent_install.yml \\
+     --extra-vars='{cenv: $ENVIRONMENT}'
+#+end_src
+The possible values for $ENVIRONMENT are currently:
+
+- production (that's the default if you omit the =--extra-vars= line above)
+- ec2 (this uses a server in AWS that is reachable from outside Red Hat)
+- staging (the staging environment)
+
+This is probably not useful, but you could also use host-specific
+variables in your inventory file to set the =cenv= variable differently
+for each host:
+#+begin_example
+[servers]
+host1    cenv=ec2
+host2
+host3
+...
+#+end_example
+In this case, the pbench agent on =host1= will be set up to use the
+ec2 environment, whereas the other two will use the default
+=production= environment.
+
+*N.B. As long as you run the playbook on a machine inside the firewall,
+you can install the agent on any host you can ssh to (as root, without
+a password), whether that host is inside or outside the firewall
+(e.g. in the =ec2= environment).*
+
+* Footnotes
+
+[fn:1] Ansible complains about "=libselinux-python=" which was the
+name of this package in RHEL7. RHEL8 and RHEL9 call it
+=python3-libselinux= .

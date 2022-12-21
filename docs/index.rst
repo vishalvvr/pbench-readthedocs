@@ -29,6 +29,14 @@ A Benchmarking and Performance Analysis Framework
 
 **Table of Contents**
 
+* :doc:`INSTALL.md`
+
+.. toctree::
+   :caption: Pbench-agent
+   :hidden:
+
+   INSTALL.md
+
 * :doc:`guides/UserGuide`
 
 .. toctree::
@@ -36,6 +44,14 @@ A Benchmarking and Performance Analysis Framework
    :hidden:
 
    guides/UserGuide
+
+* :doc:`agent/UserGuide`
+
+.. toctree::
+   :caption: Pbench-agent
+   :hidden:
+
+   agent/UserGuide
 
 * :doc:`server/installation`
 

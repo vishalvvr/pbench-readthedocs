@@ -1,0 +1,147 @@
+#+INCLUDE: settings.org
+#+OPTIONS: ^:{}
+
+#+TITLE: Installing necessary repos
+
+* Introduction
+A brand new installation of RHEL[789] might not have *any* repo files
+installed. There are two methods to populate the =/etc/ym.repos.d/=
+directory with repo files: use a subscription or install an ad-hoc set
+of repo files using an ansible playbook. You might also need to
+install EPEL. Each of these is described in the next three sections.
+
+*N.B.* If you use the method in the [[*Subscription manager][Subscription manager]] section
+below, do *NOT* use the installation described in the [[*Internal installation][Internal
+installation]] section - and vice versa: use one or the other, *not*
+both.
+
+
+** Subscription manager
+
+*N.B.* If you use the method in this section, do *NOT* use the
+installation described in the [[*Internal installation][Internal installation]] section below.
+
+This is the preferred method of installing repos for RHEL7 or RHEL8.
+Currently (<2021-11-19 Fri>), this does *not* work for RHEL9, so using
+[[*Internal installation][Internal installation]] is the only option for RHEL9. However, this *will*
+change before the RHEL9 release, so this note will become obsolete.
+
+You will need some sort of credenttials to use a subscription. For
+most of us, that means a developer account: you need a user id and a
+password in order to register a new machine with a subscription
+server.
+
+N.B. You need root privileges to run =subscription-manager=. You'll
+either have to provide the root password on each invocation, or use
+=sudo=.
+
+In each case, you will need to install the EPEL repos as well. You
+can use the ansible playbook that is used for [[*Run the ansible playbook to install the EPEL repos][internal installation]],
+but you might not want to do all the internal setup just for this step,
+in which case you can use [[https://docs.fedoraproject.org/en-US/epel/#_quickstart][these instructions on the Fedara Project site]].
+*** RHEL7
+#+begin_src shell
+  subscription-manager register
+  # enter user id and password when prompted
+  subscription-manager attach
+  subscription-manager repos
+  # list the repos
+#+end_src
+
+*** RHEL8
+
+The same commands as above are used in RHEL8, but in addition to the
+"normal" repos that you get with the commands above, you also need to
+enable the CRB repo and the ansible repo explicitly:
+#+begin_src shell
+  subscription-manager repos --enable codeready-builder-for-rhel-8-x86_64-rpms
+  subscription-manager repos --enable ansible-2.9-for-rhel-8-x86_64-rpms
+#+end_src
+
+*** RHEL9
+Subscription management repos are not yet available for RHEL9 as
+of <2022-01-31 Mon>, so the instructions for [[*Internal installation][Internal installation]]
+below should be followed for now.
+
+
+** Internal installation
+
+*N.B.* If you use the method in the [[*Subscription manager][Subscription manager]] section
+above, do *NOT* use the installation described in this section.
+
+Many internal installations do not use the subscription manager. In
+this case, we provide some more-or-less standard repo files for each
+platform. The easiest way to copy them to the remote is to clone the
+perf-dept repo, create an inventory file and use an ansible playbook.
+
+The following sections provide an overview but you should consult the
+separate instructions for [[file:rhel8.org][RHEL8]] and [[file:rhel9.org]] for more details, specific
+issues and gotchas.
+
+*** Clone the perf-dept repo
+#+begin_src shell
+  git clone https://code.engineering.redhat.com/gerrit/perf-dept /path/to/perf-dept
+#+end_src
+
+If this fails with the message
+#+begin_example
+fatal: unable to access 'https://code.engineering.redhat.com/gerrit/perf-dept/': Peer's certificate issuer has been marked as not trusted by the user.
+#+end_example
+the current (temporary) workaround is to disable SSL verification by git:
+#+begin_src shell
+  git config --global http.sslVerify false
+#+end_src
+and then trying the =git clone= again. You should also turn SSL verification back on afterwards:
+#+begin_src shell
+  git config --global http.sslVerify true
+#+end_src
+
+*** Create an inventory file
+I create them in =~/.config/Inventory/= but they can be anywhere.
+Create a file =repo-bootstrap.hosts= with contents like this:
+#+begin_src shell
+  [servers]
+  host1
+  host2
+  host3
+#+end_src
+The hosts can be running RHEL7, RHEL8 or RHEL9.
+
+You *must* set up passwordless ssh between the machine where you will
+run the ansible playbook and all the machines in your inventory file,
+not only for your own user id, but also for root. In all cases, the
+remote user should be "root".
+#+begin_src shell
+  ssh-copy-id root@host1
+  sudo ssh-copy-id root@host1
+  ssh-copy-id root@host2
+  sudo ssh-copy-id root@host2
+  ssh-copy-id root@host3
+  sudo ssh-copy-id root@host3
+#+end_src
+You may have to create keys for your user id and/or for root on your machine,
+before executing the above.
+
+*** Run the ansible playbook to install the repos
+#+begin_src shell
+  inv=/path/to/inventory/repo-bootstrap.hosts
+  cd /path/to/perf-dept
+  cd sysadmin/Ansible
+  ansible-playbook  --user=root -i ${inv} repo-bootstrap.yml
+#+end_src
+
+*** Run the ansible playbook to fix particular quirks
+#+begin_src shell
+  inv=/path/to/inventory/repo-bootstrap.hosts
+  cd /path/to/perf-dept
+  cd sysadmin/Ansible
+  ansible-playbook  --user=root -i ${inv} quirks-boostrap.yml
+#+end_src
+
+*** Run the ansible playbook to install the EPEL repos
+#+begin_src shell
+  inv=/path/to/inventory/repo-bootstrap.hosts
+  cd /path/to/perf-dept
+  cd sysadmin/Ansible
+  ansible-playbook  --user=root -i ${inv} epel-repo-install.yml
+#+end_src
