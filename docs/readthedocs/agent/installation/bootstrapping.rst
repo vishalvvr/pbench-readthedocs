@@ -1,6 +1,6 @@
-==========================
-Installing necessary repos
-==========================
+=============
+Bootstrapping
+=============
 
 
 .. contents::

@@ -1,6 +1,6 @@
-==========================
-PBench server installation
-==========================
+========================
+Pbench server deployment
+========================
 
 
 .. contents::

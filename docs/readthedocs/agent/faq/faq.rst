@@ -2,10 +2,10 @@
 
 .. contents::
 
-1 Frequently asked questions
-----------------------------
+Frequently asked questions
+--------------------------
 
-1.1 I want to group related results together - how do I do that? (Part 1)
+1. I want to group related results together - how do I do that? (Part 1)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use ``--config`` when running a benchmark.
@@ -29,7 +29,7 @@ probably want to avoid spaces, newlines, colons and characters that
 have special meaning to the shell (asterisks, backslashes, question
 marks, etc.) 
 
-1.2 I like to rename the directory that pbench produces before I send it to the server so I can group results together - that's a good idea, right?
+2. I like to rename the directory that pbench produces before I send it to the server so I can group results together - that's a good idea, right?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 No.
@@ -45,7 +45,7 @@ From v0.55 on, ``pbench-move/copy-results`` tries to detect this situation
 and will abort the move/copy, leaving the results as-is. If this happens
 frequently, we'll have to add another question to the FAQ !-)
 
-1.3 I want to group related results together - how do I do that? (Part 2)
+3. I want to group related results together - how do I do that? (Part 2)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Use ``--prefix`` and ``--user`` when moving/copying results to the server.
@@ -105,12 +105,12 @@ have access to them as well.  Currently, the dashboard ignores both of
 them, but we anticipate that they will soon be used as selection criteria
 for the results that a user might be interested in.
 
-1.4 How do I update the pbench agent?
+4. How do I update the pbench agent?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Read the `Installation instructions <installation.rst>`_.
 
-1.5 Why is the ``metadata.log`` file important?
+5. Why is the ``metadata.log`` file important?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The metadata log file collects information about the run as the
@@ -129,10 +129,10 @@ you write your own benchmark scripts, please make sure that it
 produces a metadata log file (see e.g. ``pbench-user-bencmark``, the
 simplest benchmark script, to see how to go about doing that).
 
-2 Do's and don'ts
+Do's and don'ts
 -----------------
 
-2.1 Do
+1. Do
 ~~~~~~
 
 - namespace your own results by using the ``--config`` option to the
@@ -146,7 +146,7 @@ simplest benchmark script, to see how to go about doing that).
   least with a start and end time for the run) - otherwise, the
   indexer will not index the tarball.
 
-2.2 Do not
+2. Do not
 ~~~~~~~~~~
 
 - move multiple results into a subdirectory of ``/var/lib/pbench-agent``
